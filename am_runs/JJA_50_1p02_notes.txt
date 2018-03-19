@@ -1,0 +1,36 @@
+#
+# column densities [cm^-2], including scale factors
+#
+#                           zenith               line-of-sight       
+# mesosphere (5 layers):
+#                  dry_air  1.484112e+22         1.713705e+22        
+#                      h2o  1.007085e+17         1.162881e+17        
+#                             (0.0301279 um_pwv)   (0.0347887 um_pwv)  
+#                       o3  2.720188e+16         3.141003e+16        
+#                             (1.01243 DU)         (1.16905 DU)        
+#
+# stratosphere (12 layers):
+#                  dry_air  1.469267e+24         1.696564e+24        
+#                      h2o  6.845763e+18         7.904806e+18        
+#                             (2.04797 um_pwv)     (2.3648 um_pwv)     
+#                       o3  5.959993e+18         6.882007e+18        
+#                             (221.825 DU)         (256.141 DU)        
+#
+# troposphere (11 layers):
+#                  dry_air  1.026026e+25         1.184753e+25        
+#                      h2o  2.229356e+21         2.574239e+21        
+#                             (666.933 um_pwv)     (770.108 um_pwv)    
+#                       o3  9.196105e+17         1.061875e+18        
+#                             (34.227 DU)          (39.5219 DU)        
+#
+# total (28 layers):
+#                  dry_air  1.174437e+25         1.356123e+25        
+#                      h2o  2.236303e+21         2.582260e+21        
+#                             (669.011 um_pwv)     (772.507 um_pwv)    
+#                       o3  6.906805e+18         7.975291e+18        
+#                             (257.064 DU)         (296.832 DU)        
+#
+
+! Warning: Encountered in-band lines narrower than the frequency grid.
+!          The output configuration data includes the unresolved line count
+!          next to each column for which this occurred.  Count: 93
