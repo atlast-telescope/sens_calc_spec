@@ -3,7 +3,7 @@ import pylab as pl
 import pandas as pd
 
 # load in the spreadsheet
-df_inst_inputs = pd.read_excel('instrument_definition_inputs_shortlist.xlsx')
+df_inst_inputs = pd.read_excel('instrument_definition_inputs.xlsx')
 
 # always skip first data point, because f=0 causes problem with CMB integral
 
@@ -38,8 +38,8 @@ def calculate_net_and_nep(f_GHz,system_efficiency,T_det,atmosphere_transmission,
 
     shot = 2*k*T_det*h*f*df
     wave = 2*(P0)**2.0 / df
-    print 'Shot noise = '+str(nm.sqrt(nm.sum(shot))*1.0e18)+' aWrtHz'
-    print 'Wave noise = '+str(nm.sqrt(nm.sum(wave))*1.0e18)+' aWrtHz'
+    print('Shot noise = '+str(nm.sqrt(nm.sum(shot))*1.0e18)+' aWrtHz')
+    print('Wave noise = '+str(nm.sqrt(nm.sum(wave))*1.0e18)+' aWrtHz')
     # this nep will be "low" because bad optical efficiency has reduced the as-seen loading
     nep = nm.sqrt(shot+wave)# watts root second
 
@@ -49,6 +49,10 @@ def calculate_net_and_nep(f_GHz,system_efficiency,T_det,atmosphere_transmission,
     # that means NET does scale up as sqrt(OE) as expected
     net_integrand = ((h*f)/(2.725))**2.0 * (1.0/k) * ( nm.exp( (h*f)/(k*2.725) ) / ((nm.exp( (h*f)/(k*2.725) ) - 1)**2.0) )
     net = (nep / (nm.sqrt(2.0) * system_efficiency * net_integrand * df) )*1.0e6 # uK root second 
+
+    # nerj integrand, Lueker 2.21 without an extra 2
+    nerj_integrand = nm.sqrt(2)*k*system_efficiency*df
+    nerj = (nep / nerj_integrand)*1.0e6 # uK root second
 
     # scale the NEP 
     nep = nep*1.0e18 #attowatts root hz
@@ -72,13 +76,14 @@ def calculate_net_and_nep(f_GHz,system_efficiency,T_det,atmosphere_transmission,
     # https://en.wikipedia.org/wiki/Weighted_arithmetic_mean#Dealing_with_variance
     # sigma^2 = 1 / sum(sigma^(-2))
     net = nm.sqrt(1.0 / nm.sum(net**(-2.0)))
+    nerj = nm.sqrt(1.0 / nm.sum(nerj**(-2.0)))
     nefd = nm.sqrt(1.0 / nm.sum(nefd**(-2.0)))
     # nep is sum of squares
     nep = nm.sqrt(nm.sum(nep**2.0))
     # power just adds
     P0 = nm.sum(P0)
 
-    return P0,net,nefd,nep
+    return P0,net,nefd,nep,nerj
 
 # drop the last row because it's just adding up the number of wafers
 df_inst_inputs.drop(len(df_inst_inputs)-2)
@@ -90,12 +95,15 @@ loading_at_det = nm.zeros(len(df_inst_inputs))
 nep_at_det = nm.zeros(len(df_inst_inputs)) 
 nefd_array = nm.zeros(len(df_inst_inputs))
 mapping_speed_raw = nm.zeros(len(df_inst_inputs))
+mapping_speed_rj = nm.zeros(len(df_inst_inputs))
+nerj_array = nm.zeros(len(df_inst_inputs))
 
 # go through and run the model for each row (except the last row that just adds up the number of detector wafers)
-for i in xrange(len(df_inst_inputs)):
+for i in range(len(df_inst_inputs)):
     fmin = df_inst_inputs['fmin'][i]
     fmax = df_inst_inputs['fmax'][i]
     fcent_nom = (fmin+fmax)/2.0
+    fcent_spacing = df_inst_inputs['det_spacing_freq'][i]
 
     passband = nm.zeros_like(f_GHz) + 1e-10 # literally zero will make noise infinite, which may mess up the sum later?
     passband[(f_GHz>fmin) & (f_GHz<fmax)] = 1.0
@@ -124,7 +132,7 @@ for i in xrange(len(df_inst_inputs)):
     telescope_diameter = 50.0
 
     fwhm_arcsec = (50.0/telescope_diameter)*(280.0/fcent_nom)*5.0
-    print 'Nominal beam assumed to be '+str(fwhm_arcsec)+' arcseconds'
+    print('Nominal beam assumed to be '+str(fwhm_arcsec)+' arcseconds')
     beams[i] = fwhm_arcsec
 
     fnum = 2 # f number at focal plane array
@@ -135,9 +143,9 @@ for i in xrange(len(df_inst_inputs)):
     Ndet = area / (fnum*(300.0/fcent_nom))**2.0
     Ndet = nm.round(Ndet)
     Ndet = 2*Ndet # double the number because they're polarized
-    print 'Polarized detectors in a 6-inch array = '+str(Ndet)
-    print 'Assuming '+str(df_inst_inputs['Nwafer (total of ~70 wafers)'][i])+' wafers'
-    Ndet = df_inst_inputs['Nwafer (total of ~70 wafers)'][i]*Ndet
+    print('Polarized detectors in a 6-inch array = '+str(Ndet))
+    print('Assuming '+str(df_inst_inputs['Nwafer'][i])+' wafers')
+    Ndet = df_inst_inputs['Nwafer'][i]*Ndet
     Ndets_array[i] = Ndet
 
 
@@ -148,15 +156,15 @@ for i in xrange(len(df_inst_inputs)):
     # single-detector noise
     # this calculates the loading assuming the T_det is the at-detector loading
     # and then calculates NET and NEFD by scaling that noise by the system efficiency and the atmospheric transmission
-    P0,net,nefd,nep_at_detector = calculate_net_and_nep(f_GHz,
+    P0,net,nefd,nep_at_detector,nerj = calculate_net_and_nep(f_GHz,
                                                         system_efficiency,
                                                         T_det,
                                                         atm_tx,
                                                         telescope_diameter)
-    print 'Center Frequency = '+str(fcent_nom)+' GHz'
-    print 'Loading = '+str(P0*1.0e12)+' pW'
-    print 'NEP at Detector = '+str(nep_at_detector)+' aWrts'
-    print 'NEFD = '+str(nefd)+' mJrts'
+    print('Center Frequency = '+str(fcent_nom)+' GHz')
+    print('Loading = '+str(P0*1.0e12)+' pW')
+    print('NEP at Detector = '+str(nep_at_detector)+' aWrts')
+    print('NEFD = '+str(nefd)+' mJrts')
 
     loading_at_det[i] = P0*1.0e12
     nep_at_det[i] = nep_at_detector 
@@ -180,11 +188,14 @@ for i in xrange(len(df_inst_inputs)):
     N_beams_in_sqdeg = (60.0*60.0)**2 / ((fwhm_arcsec**2)*(nm.pi/(4.0*nm.log(2.0))))
     mapping_speed = (1.0/nefd)**2 * Ndet * (3600.0/N_beams_in_sqdeg)
 
-    print ' '
-    print 'Mapping Speed, Raw = '+str(mapping_speed)+' deg^2/mJ^2/hr'
-    print 'Mapping Speed, Downscaled = '+str(mapping_speed*(26.0/184.0))+' deg^2/mJ^2/hr'
+    mapping_speed_rj[i] = (1.0/nerj)**2 * Ndet * (3600.0/N_beams_in_sqdeg)
+
+    print(' ')
+    print('Mapping Speed, Raw = '+str(mapping_speed)+' deg^2/mJ^2/hr')
+    print('Mapping Speed, Downscaled = '+str(mapping_speed*(26.0/184.0))+' deg^2/mJ^2/hr')
 
     mapping_speed_raw[i] = mapping_speed
+    nerj_array[i] = nerj
 
 
 # add these rows to the existing data frame, to be saved
@@ -194,6 +205,8 @@ df_inst_inputs['Loading at Detector in pW'] = loading_at_det
 df_inst_inputs['NEP at Detectors in aWrtHz'] = nep_at_det
 df_inst_inputs['NEFD of a Single Detector'] = nefd_array
 df_inst_inputs['Mapping speed in deg^2/mJ^2/hour'] = mapping_speed_raw
+df_inst_inputs['NET_RJ of a Single Detector'] = nerj_array
+df_inst_inputs['Mapping speed in deg^2/uKrj^2/hour'] = mapping_speed_rj
 
 # save this out to an excel file
 df_inst_inputs.to_csv('results_of_instrument_simulation.csv')
