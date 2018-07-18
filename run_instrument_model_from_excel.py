@@ -140,7 +140,7 @@ for i in range(len(df_inst_inputs)):
     # assume a single 6-inch wafer filled at 1 f lambda with detectors
     area = nm.pi*(3.0)**2 # inches
     area = area*(25.4)**2 # millimeters
-    Ndet = area / (fnum*(300.0/fcent_nom))**2.0
+    Ndet = area / (fnum*(300.0/fcent_spacing))**2.0
     Ndet = nm.round(Ndet)
     Ndet = 2*Ndet # double the number because they're polarized
     print('Polarized detectors in a 6-inch array = '+str(Ndet))
