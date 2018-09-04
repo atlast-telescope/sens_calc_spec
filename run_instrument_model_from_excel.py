@@ -1,5 +1,5 @@
 import numpy as nm
-import pylab as pl
+import matplotlib.pyplot as pl
 import pandas as pd
 
 # load in the spreadsheet
@@ -204,8 +204,11 @@ df_inst_inputs['Beam in Arcseconds'] = beams
 df_inst_inputs['Loading at Detector in pW'] = loading_at_det
 df_inst_inputs['NEP at Detectors in aWrtHz'] = nep_at_det
 df_inst_inputs['NEFD of a Single Detector'] = nefd_array
+df_inst_inputs['NEFD of Entire Frequency Band'] = nefd_array/nm.sqrt(Ndets_array)
 df_inst_inputs['Mapping speed in deg^2/mJ^2/hour'] = mapping_speed_raw
+df_inst_inputs['Mapping speed in deg^2/(30 uJ)^2/hour'] = mapping_speed_raw/((1000.0/3.0)**2)
 df_inst_inputs['NET_RJ of a Single Detector'] = nerj_array
+df_inst_inputs['NET_RJ of Entire Frequency Band'] = nerj_array/nm.sqrt(Ndets_array)
 df_inst_inputs['Mapping speed in deg^2/uKrj^2/hour'] = mapping_speed_rj
 
 # save this out to an excel file
