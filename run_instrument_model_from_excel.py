@@ -85,17 +85,12 @@ def calculate_net_and_nep(f_GHz,system_efficiency,T_det,atmosphere_transmission,
 
     return P0,net,nefd,nep,nerj
 
-# drop the last row because it's just adding up the number of wafers
-df_inst_inputs.drop(len(df_inst_inputs)-2)
-
 # make numpy arrays for the outputs
 Ndets_array = nm.zeros(len(df_inst_inputs))
 beams = nm.zeros(len(df_inst_inputs))
 loading_at_det = nm.zeros(len(df_inst_inputs)) 
 nep_at_det = nm.zeros(len(df_inst_inputs)) 
 nefd_array = nm.zeros(len(df_inst_inputs))
-mapping_speed_raw = nm.zeros(len(df_inst_inputs))
-mapping_speed_rj = nm.zeros(len(df_inst_inputs))
 nerj_array = nm.zeros(len(df_inst_inputs))
 
 # go through and run the model for each row (except the last row that just adds up the number of detector wafers)
@@ -103,7 +98,6 @@ for i in range(len(df_inst_inputs)):
     fmin = df_inst_inputs['fmin'][i]
     fmax = df_inst_inputs['fmax'][i]
     fcent_nom = (fmin+fmax)/2.0
-    fcent_spacing = df_inst_inputs['det_spacing_freq'][i]
 
     passband = nm.zeros_like(f_GHz) + 1e-10 # literally zero will make noise infinite, which may mess up the sum later?
     passband[(f_GHz>fmin) & (f_GHz<fmax)] = 1.0
@@ -116,7 +110,7 @@ for i in range(len(df_inst_inputs)):
     pl.ylabel('Passband')
 
     # detector efficiency
-    detector_optical_efficiency = 0.95
+    detector_optical_efficiency = 0.95*0.5 # filter bank
 
     # aperture efficiency for 1flambda horns
     aperture_efficiency = 0.35
@@ -137,15 +131,7 @@ for i in range(len(df_inst_inputs)):
 
     fnum = 2 # f number at focal plane array
 
-    # assume a single 6-inch wafer filled at 1 f lambda with detectors
-    area = nm.pi*(3.0)**2 # inches
-    area = area*(25.4)**2 # millimeters
-    Ndet = area / (fnum*(300.0/fcent_spacing))**2.0
-    Ndet = nm.round(Ndet)
-    Ndet = 2*Ndet # double the number because they're polarized
-    print('Polarized detectors in a 6-inch array = '+str(Ndet))
-    print('Assuming '+str(df_inst_inputs['Nwafer'][i])+' wafers')
-    Ndet = df_inst_inputs['Nwafer'][i]*Ndet
+    Ndet = df_inst_inputs['Nchan'][i]*df_inst_inputs['Nhorns'][i]
     Ndets_array[i] = Ndet
 
 
@@ -169,32 +155,6 @@ for i in range(len(df_inst_inputs)):
     loading_at_det[i] = P0*1.0e12
     nep_at_det[i] = nep_at_detector 
     nefd_array[i] = nefd
-
-    # convert nefd into mapping speed of TolTEC instrument
-
-
-    # central construct is:
-    #     if you have a nefd of X in mJrts
-    #     and you have a small beam such that N beams tile 1 square degree
-    #     if you spend one second on each beam, across the square degree
-    #     for a total of N seconds, you will have a pseudo-mapping-speed of
-    #         (1/X)^2 deg^2/mJ^2/(N seconds) per det
-    #     say that (N seconds) is less than an hour, you could cover more sky in that hour
-    #     so to convert to /hour you multiply, yielding
-    #         (1/X)^2 * (3600 seconds)/(N seconds) deg^2/mJ^2/hour per det
-    #     the mapping speed also "goes as" the detector count, since it's mJ^2 units
-    #         (1/X)^2 * Ndet * (3600 seconds)/(N seconds) deg^2/mJ^2/hour per instrument
-    # putting that into practice
-    N_beams_in_sqdeg = (60.0*60.0)**2 / ((fwhm_arcsec**2)*(nm.pi/(4.0*nm.log(2.0))))
-    mapping_speed = (1.0/nefd)**2 * Ndet * (3600.0/N_beams_in_sqdeg)
-
-    mapping_speed_rj[i] = (1.0/nerj)**2 * Ndet * (3600.0/N_beams_in_sqdeg)
-
-    print(' ')
-    print('Mapping Speed, Raw = '+str(mapping_speed)+' deg^2/mJ^2/hr')
-    print('Mapping Speed, Downscaled = '+str(mapping_speed*(26.0/184.0))+' deg^2/mJ^2/hr')
-
-    mapping_speed_raw[i] = mapping_speed
     nerj_array[i] = nerj
 
 
@@ -204,12 +164,8 @@ df_inst_inputs['Beam in Arcseconds'] = beams
 df_inst_inputs['Loading at Detector in pW'] = loading_at_det
 df_inst_inputs['NEP at Detectors in aWrtHz'] = nep_at_det
 df_inst_inputs['NEFD of a Single Detector'] = nefd_array
-df_inst_inputs['NEFD of Entire Frequency Band'] = nefd_array/nm.sqrt(Ndets_array)
-df_inst_inputs['Mapping speed in deg^2/mJ^2/hour'] = mapping_speed_raw
-df_inst_inputs['Mapping speed in deg^2/(30 uJ)^2/hour'] = mapping_speed_raw/((1000.0/3.0)**2)
 df_inst_inputs['NET_RJ of a Single Detector'] = nerj_array
 df_inst_inputs['NET_RJ of Entire Frequency Band'] = nerj_array/nm.sqrt(Ndets_array)
-df_inst_inputs['Mapping speed in deg^2/uKrj^2/hour'] = mapping_speed_rj
 
 # save this out to an excel file
 df_inst_inputs.to_csv('results_of_instrument_simulation.csv')
